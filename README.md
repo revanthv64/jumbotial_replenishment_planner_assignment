@@ -80,7 +80,7 @@ Numeric fields are converted using `to_numeric(..., errors="coerce")`, with inva
 
 ---
 
-## 3. Where AI Helped
+## 3. Where AI Helped - Link attached - https://chatgpt.com/share/6a8c79f9-44e4-83ee-a8f5-2f8ba58745ed
 
 AI was used primarily as a development and reasoning aid rather than as the source of the final business logic.
 
