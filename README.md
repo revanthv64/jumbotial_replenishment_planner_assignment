@@ -1,257 +1,152 @@
-# jumbotial_replenishment_planner_assignment
 # Replenishment Planner
 
-## 1. Overview
+## 1. How to Run
 
-This project builds a SKU-level **Replenishment Planner** for a fulfillment center.
+The solution is implemented as a Google Colab notebook using Python, Pandas, NumPy, and SQLite.
 
-The planner takes inventory, demand, supplier, MOQ/MOV, and lead-time data as inputs and generates **purchase order (PO) suggestions** for each SKU.
+### Steps
 
-The objective is to determine:
+1. Open `Jumbotail_assignment.ipynb` in Google Colab.
+2. Upload `assignment_data.csv` when prompted.
+3. Run the notebook cells from top to bottom.
+4. The notebook:
 
-* Whether a SKU requires replenishment
-* The recommended replenishment quantity
-* Whether the suggested order meets vendor MOQ/MOV requirements
-* The final PO suggestion after applying business rules
-* Supporting flags and calculations for operational decision-making
+   * Loads and validates the input data.
+   * Parses the JSON inventory and PO fields.
+   * Calculates inventory position, target coverage, and raw replenishment.
+   * Applies case-size and MOV constraints.
+   * Calculates final PO quantity, value, tonnage, DOI, and MOV checks.
+   * Writes the processed data to `replenishment_output.csv`.
+   * Creates a SQLite database `replenishment.db` containing the replenishment data.
 
-The solution also loads the base data and planner outputs into a **SQLite database** for structured querying and future analysis.
-
----
-
-## 2. Project Structure
-
-```text
-Replenishment Planner
-│
-├── assignment_data.csv
-├── replenishment_planner.ipynb
-├── replenishment_output.csv
-├── replenishment.db
-└── README.md
-```
-
-### Files
-
-| File                          | Description                                            |
-| ----------------------------- | ------------------------------------------------------ |
-| `assignment_data.csv`         | Input dataset provided for the assignment              |
-| `replenishment_planner.ipynb` | Google Colab notebook containing the complete solution |
-| `replenishment_output.csv`    | Final SKU-level replenishment recommendations          |
-| `replenishment.db`            | SQLite database containing the input/output data       |
-| `README.md`                   | Project documentation                                  |
+The notebook expects `assignment_data.csv` to be available at `/content/assignment_data.csv`. The input used during development contained 1,389 rows and 36 columns.
 
 ---
 
-## 3. Technology Stack
+## 2. Key Assumptions
 
-* **Python**
-* **Pandas** – data processing and transformation
-* **NumPy** – numerical calculations
-* **SQLite** – database storage and querying
-* **Google Colab** – execution environment
+### Inventory Target
 
----
+I interpreted the inventory target as:
 
-## 4. Input Data
+`Target Days = MAX(Inventory Norm, Vendor Lead Time) + Safety Stock`
 
-The planner uses `assignment_data.csv` as its primary input.
+and:
 
-The dataset contains SKU-level information related to:
+`Target Units = Target Days × Max DRR`
 
-* Inventory position
-* Demand / consumption
-* Lead time
-* Supplier information
-* Minimum Order Quantity (MOQ)
-* Minimum Order Value (MOV)
-* Vendor ordering criteria
-* Other replenishment-related attributes
+This ensures the target covers the larger of the required inventory norm or vendor lead time, with safety stock added on top.
 
-The notebook automatically reads the uploaded CSV and validates the required input.
+### Inventory Position
 
----
+Inventory position is calculated as:
 
-## 5. Replenishment Logic
+`Current Inventory + Ordered Quantity`
 
-The planner follows a sequence of business rules to calculate the recommended purchase quantity.
+Open/ordered supply is therefore considered before generating an additional PO suggestion.
 
-### Step 1 — Calculate Inventory Position
+### Raw Replenishment
 
-The available inventory position is evaluated using the inventory and supply-related fields provided in the dataset.
+Raw replenishment is:
 
-### Step 2 — Determine Replenishment Requirement
+`MAX(0, Target Units - Inventory Position)`
 
-The planner identifies SKUs where the expected inventory position is insufficient to cover the required demand/safety requirement.
+This prevents negative PO suggestions.
 
-SKUs that do not require replenishment receive a final suggestion of `0`.
+### Case and MOV Constraints
 
-### Step 3 — Calculate Initial Replenishment Quantity
+The final suggestion is converted into cases and constrained by:
 
-For SKUs requiring replenishment, the system calculates the quantity required to restore inventory to the required level.
+* Vendor minimum order value (MOV).
+* Maximum order cases.
+* Case size.
 
-### Step 4 — Apply Vendor MOQ
+The final unit suggestion is then:
 
-Where applicable, the suggested quantity is adjusted to satisfy the vendor's **Minimum Order Quantity (MOQ)**.
+`Final Suggestion = Final Cases × Case Size`
 
-### Step 5 — Validate Vendor MOV
+SKUs with zero demand are explicitly assigned zero replenishment.
 
-Where the vendor's minimum ordering criterion is based on **Minimum Order Value (MOV)**, the planner checks whether the proposed order value meets the required threshold.
+### PO Value
 
-The planner identifies whether the order:
+PO value is calculated using cost price:
 
-* `PASS` – satisfies the requirement
-* `FAIL` – does not satisfy the requirement
-* `N/A` – no replenishment is required
+`Final Value = Final Suggestion × CP`
 
-### Step 6 — Generate Final Suggestion
+### Missing Numeric Values
 
-The final PO suggestion incorporates the replenishment requirement and applicable vendor constraints.
-
-The resulting quantity is stored in the output as the **final replenishment suggestion**.
+Numeric fields are converted using `to_numeric(..., errors="coerce")`, with invalid or missing values treated as zero. This was chosen to make the planner robust to null or malformed numeric inputs.
 
 ---
 
-## 6. Output
+## 3. Where AI Helped
 
-The planner generates a CSV containing the original SKU-level information along with the calculated replenishment fields.
+AI was used primarily as a development and reasoning aid rather than as the source of the final business logic.
 
-Key output fields include:
+It helped with:
 
-* Replenishment requirement
-* Initial suggestion
-* Final suggestion
-* MOQ adjustment
-* MOV validation
-* Replenishment / ordering flags
-* Other supporting calculations
+* Translating the replenishment requirements into Python calculations.
+* Structuring the planner into separate, testable calculation steps.
+* Handling JSON fields such as `inventory_breakup` and `open_po_details`.
+* Debugging Python/Colab issues and iterating on the implementation.
+* Designing the SQLite layer and useful SQL queries.
+* Thinking through inventory-health, prioritization, MOV, and replenishment logic.
 
-The output is designed to allow an operations or supply-chain user to quickly identify **which SKUs need to be ordered and how much should be ordered**.
+The final formulas and outputs were not accepted blindly. I manually reviewed the calculation flow and checked intermediate values such as inventory position, target units, raw replenishment, final cases, final units, and PO value.
 
----
+## For example, the notebook explicitly validates required columns before processing and validates the parsed JSON fields before continuing.
 
-## 7. SQLite Database
+## 4. What I Verified Manually
 
-The solution also creates a SQLite database:
+I manually checked:
 
-```text
-replenishment.db
-```
+* Input row and column counts.
+* Presence of required fields.
+* JSON parsing and handling of empty JSON values.
+* Current DOI calculation.
+* Inventory position calculation.
+* Target coverage logic.
+* Raw replenishment calculation.
+* Case-size conversion.
+* MOV constraints.
+* Zero-demand SKU handling.
+* Final PO quantity and PO value.
+* SQLite table creation and row loading.
 
-The database provides a structured way to store and query the planner data.
-
-Typical use cases include:
-
-* Querying SKU-level recommendations
-* Filtering SKUs requiring replenishment
-* Analysing vendor-level requirements
-* Validating planner calculations
-* Supporting future dashboards or applications
-
-Example SQL query:
-
-```sql
-SELECT *
-FROM replenishment_output
-WHERE final_suggestion > 0;
-```
-
-This returns all SKUs for which a purchase order is recommended.
+The notebook also performs validation after loading the processed data into SQLite.
 
 ---
 
-## 8. Running the Solution
+## 5. What I Would Improve With More Time
 
-### Google Colab
+1. **More sophisticated inventory health**
 
-1. Open the `replenishment_planner.ipynb` notebook in Google Colab.
-2. Run the notebook from top to bottom.
-3. When prompted, upload:
+   * Add explicit overstock, understock, stockout, and healthy-stock classifications.
+   * Incorporate projected DOI and lead-time risk more directly.
 
-```text
-assignment_data.csv
-```
+2. **Sales-band prioritization**
 
-4. The notebook processes the input data.
-5. The final output is generated as:
+   * Use sales bands as an explicit prioritization layer so scarce purchasing capacity is allocated to higher-priority SKUs first.
 
-```text
-replenishment_output.csv
-```
+3. **Better PO modelling**
 
-6. The SQLite database is generated as:
+   * Model individual open POs by promise date instead of relying primarily on aggregated ordered quantities.
+   * Distinguish POs arriving within lead time from later POs.
 
-```text
-replenishment.db
-```
+4. **Capacity constraints**
 
----
+   * Add facility/vendor-level constraints and optimize allocation when total required purchasing exceeds available capacity.
 
-## 9. Key Design Principles
+5. **Forecast quality**
 
-The solution was designed with the following principles:
+   * Replace the current DRR-based approach with a more robust demand forecast incorporating seasonality, trends, and demand variability.
 
-### Automation
+6. **Testing**
 
-The complete replenishment calculation is automated using Python rather than manually calculating PO quantities.
+   * Add automated unit tests for edge cases such as zero DRR, missing values, very large MOV requirements, insufficient capacity, and conflicting constraints.
 
-### Traceability
+7. **Productionization**
 
-Intermediate calculations and flags are retained so that the final recommendation can be understood and validated.
+   * Move the notebook logic into modular Python files and expose the planner through a Streamlit dashboard/API for operational use.
 
-### Business-rule driven
-
-The planner explicitly incorporates vendor constraints such as MOQ and MOV rather than relying only on inventory levels.
-
-### Data validation
-
-Input data is cleaned and validated before calculations are performed to reduce errors caused by missing or inconsistent values.
-
-### Extensibility
-
-The logic is implemented using reusable functions so that additional replenishment rules can be added without redesigning the entire solution.
-
-### Database-ready
-
-The solution stores the processed data in SQLite, making it possible to extend the planner into a larger analytics or operational application.
-
----
-
-## 10. Assumptions
-
-The following assumptions are made where business rules or required fields are not explicitly defined:
-
-1. Input values are interpreted according to their corresponding column definitions.
-2. Missing numerical values are handled using predefined data-cleaning rules.
-3. A SKU with no replenishment requirement receives a final suggestion of `0`.
-4. MOQ/MOV rules are applied only when the corresponding vendor criteria are available.
-5. Vendor ordering criteria determine whether MOQ or MOV validation is required.
-6. The final suggestion is intended to represent the quantity that should be considered for purchase ordering.
-
----
-
-## 11. Future Improvements
-
-The planner can be extended with:
-
-* Safety-stock calculations
-* ABC/XYZ inventory classification
-* Demand forecasting
-* Supplier performance analysis
-* Purchase-order consolidation by vendor
-* Vendor-level MOQ/MOV optimization
-* Power BI dashboards
-* Automated database refresh
-* Exception alerts for critical SKUs
-* Web-based replenishment planning interface
-
----
-
-## 12. Conclusion
-
-This solution provides an automated and scalable approach to SKU-level replenishment planning.
-
-It combines **inventory analysis, replenishment calculations, vendor constraints, data processing, and database storage** into a single workflow.
-
-The resulting output can be used by supply-chain or procurement teams to identify replenishment requirements and support purchase-order decisions.
-
+Overall, the current solution prioritizes **clarity, traceability, and a deterministic replenishment calculation** while leaving room for more advanced optimization and forecasting.
