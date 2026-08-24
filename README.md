@@ -148,6 +148,9 @@ The notebook also performs validation after loading the processed data into SQLi
 
 7. **Productionization**
 
-   * Move the notebook logic into modular Python files and expose the planner through a Streamlit dashboard/API for operational use.
+   * Move the notebook logic into modular Python files
+  
+8. **Dashboard**
+   * make a better streamlit dashboard for operational use
 
 Overall, the current solution prioritizes **clarity, traceability, and a deterministic replenishment calculation** while leaving room for more advanced optimization and forecasting.
