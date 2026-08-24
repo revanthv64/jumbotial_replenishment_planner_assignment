@@ -95,7 +95,7 @@ It helped with:
 
 The final formulas and outputs were not accepted blindly. I manually reviewed the calculation flow and checked intermediate values such as inventory position, target units, raw replenishment, final cases, final units, and PO value.
 
-## For example, the notebook explicitly validates required columns before processing and validates the parsed JSON fields before continuing.
+ For example, the notebook explicitly validates required columns before processing and validates the parsed JSON fields before continuing.
 
 ## 4. What I Verified Manually
 
