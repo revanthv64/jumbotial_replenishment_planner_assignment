@@ -92,6 +92,7 @@ It helped with:
 * Debugging Python/Colab issues and iterating on the implementation.
 * Designing the SQLite layer and useful SQL queries.
 * Thinking through inventory-health, prioritization, MOV, and replenishment logic.
+* Make a basic streamlit dashboard for operational use (Needs lot of improvement) - Link -  https://jumbotialreplenishmentplannerassignment.streamlit.app/
 
 The final formulas and outputs were not accepted blindly. I manually reviewed the calculation flow and checked intermediate values such as inventory position, target units, raw replenishment, final cases, final units, and PO value.
 
