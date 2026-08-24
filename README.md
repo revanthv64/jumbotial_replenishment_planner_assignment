@@ -1,5 +1,6 @@
 # Replenishment Planner
-
+## Overview
+# This project is a SKU-level inventory replenishment planner that determines how much of each SKU should be ordered based on demand, current inventory, incoming purchase orders, inventory norms, safety stock, vendor lead time, case size, and minimum order value (MOV).
 ## 1. How to Run
 
 The solution is implemented as a Google Colab notebook using Python, Pandas, NumPy, and SQLite.
